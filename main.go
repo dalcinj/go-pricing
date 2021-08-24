@@ -5,10 +5,16 @@ import (
 	"math/big"
 	"net/http"
 
-	"github.com/bojanz/currency"
 	"github.com/gin-gonic/gin"
-	"github.com/shopspring/decimal"
+	"github.com/gorilla/schema"
 )
+
+type PricingInput struct {
+	ValueOne int64 `schema:"value_one"`
+	ValueTwo int64 `schema:"value_two"`
+}
+
+var decoder = schema.NewDecoder()
 
 func main() {
 	router := gin.Default()
@@ -18,21 +24,27 @@ func main() {
 }
 
 func calculatePricing(context *gin.Context) {
-	val1, convertDecimalErr := decimal.NewFromString(context.Query("val1"))
-	val2, convertDecimalErr := decimal.NewFromString(context.Query("val2"))
-	if convertDecimalErr != nil {
-		panic(convertDecimalErr)
+
+	var pricingInput PricingInput
+	err := decoder.Decode(&pricingInput, context.Request.URL.Query())
+	if err != nil {
+		fmt.Println("Error in GET parameters : ", err)
+	} else {
+		fmt.Println("GET parameters : ", pricingInput)
+		fmt.Println("ValueOne: ", pricingInput.ValueOne)
+		fmt.Println("ValueTwo: ", pricingInput.ValueTwo)
 	}
 
-	amount, _ := currency.NewAmount("275.98", "BRL")
-	fmt.Println("amount: ", amount)
-	fee, _ := currency.NewAmount("0.35", "BRL")
-	fmt.Println("fee: ", fee)
-	tax, mulErr := amount.Mul(fee.Number())
-	if mulErr != nil {
-		panic(mulErr)
+	minOffer := pricingInput.ValueOne + pricingInput.ValueTwo
+	maxOffer := pricingInput.ValueOne * pricingInput.ValueTwo
+
+	n := new(big.Int)
+	n, ok := n.SetString("10", 10)
+	if !ok {
+		fmt.Println("SetString: error")
+		return
 	}
-	fmt.Println("tax: ", tax.Number())
+	fmt.Println("n: ", n)
 
 	a := big.NewInt(1199)
 	b := big.NewInt(30)
@@ -42,17 +54,8 @@ func calculatePricing(context *gin.Context) {
 	c.Div(c, hundred)
 	fmt.Println("c: ", c)
 
-	fmt.Println("val1: ", val1)
-	fmt.Println("val2: ", val2)
-
-	// fee, _ := decimal.NewFromString(".035")
-	// taxRate, _ := decimal.NewFromString(".08875")
-
-	// minOffer, _ := val1.Mul(fee).Round(2).Float64()
-	// maxOffer, _ := val2.Mul(taxRate).Round(2).Float64()
-
 	context.JSON(http.StatusOK, gin.H{
-		"min_offer": "minOffer",
-		"max_offer": "maxOffer",
+		"min_offer": minOffer,
+		"max_offer": maxOffer,
 	})
 }
